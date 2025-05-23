@@ -5,8 +5,6 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using ClothingAPIs.DTO;
 
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
 namespace ClothingAPIs.Controllers
 {
     [Route("api/[controller]")]
@@ -22,9 +20,6 @@ namespace ClothingAPIs.Controllers
         {
             _context = context;
         }
-
-    
-        // get review by productid
 
         [HttpGet("product/{productId}")]
         public async Task<ActionResult<IEnumerable<ReviewDTO>>> GetReviewsByProductId(int productId)
@@ -46,8 +41,6 @@ namespace ClothingAPIs.Controllers
 			return Ok(reviews.Select(r => new { r.Id, ismine = User is null ? false : User.FindFirstValue(ClaimTypes.NameIdentifier) == r.UserId ? true : false, r.User.UserName, Productname = r.Product.Name, productId, r.UserId, r.ReviewDate, r.Comment, r.Rating }).ToList());
 		}
 
-        // create review
-
         [HttpPost]
         [Authorize]
         public async Task<ActionResult<Review>> PostReview(ReviewDTO reviewdto)
@@ -56,7 +49,6 @@ namespace ClothingAPIs.Controllers
 
             var review = new Review()
             {
-               // Id= reviewdto.Id,......
                 ReviewDate = DateTime.Now,
                  Comment= reviewdto.Comment,
                   Rating= reviewdto.Rating,
@@ -64,7 +56,6 @@ namespace ClothingAPIs.Controllers
                     UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
 			};
 
-            //usermsnger.find by id
 
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();
@@ -78,8 +69,6 @@ namespace ClothingAPIs.Controllers
 
 
 		}
-
-        // delete review
 
         [HttpDelete("{id}")]
         [Authorize]

@@ -185,8 +185,6 @@ namespace ClothingAPIs.Controllers
 			if (dto.method == Models.PaymentMethod.Stripe && !Stripesucceeded)
 			{
 				HttpContext.Session.SetString("BillingDto", JsonConvert.SerializeObject(dto));
-				//var client = _httpClientFactory.CreateClient();
-				//var result=client.PostAsJsonAsync
 				return RedirectToAction("CreateCheckoutSession", "Order", new { Amount = cart.TotalAmount, successurl = successurl });
 			}
 			else if(Stripesucceeded)
@@ -256,11 +254,6 @@ namespace ClothingAPIs.Controllers
 		[HttpGet("create-checkout-session")]
 		public ActionResult<PaymentResponse> CreateCheckoutSession(string Amount, string successurl="")
 		{
-
-
-
-
-
 			try
 			{
 				var baseUrl = $"{Request.Scheme}://{Request.Host}";
@@ -317,10 +310,6 @@ namespace ClothingAPIs.Controllers
 				_logger.LogError(e, "Stripe error");
 				return BadRequest(new { error = e.StripeError.Message });
 			}
-
-
-
-
 		
 		}
 
@@ -328,12 +317,6 @@ namespace ClothingAPIs.Controllers
 		[HttpGet("success")]
 		public async Task<IActionResult> PaymentSuccess([FromQuery] string session_id, [FromQuery] string successurl)
 		{
-
-
-
-
-
-			#region t3bt
 			var user = await userManager.FindByIdAsync(User.FindFirstValue(ClaimTypes.NameIdentifier));
 			if (user == null)
 			{
@@ -409,10 +392,6 @@ namespace ClothingAPIs.Controllers
 				_context.SaveChanges();
 			}
 			return Redirect(successurl);
-			#endregion
-
-
-
 			
 		}
 

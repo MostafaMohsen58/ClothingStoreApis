@@ -22,21 +22,94 @@ namespace ClothingAPIs.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IEmailSettings _emailsettings;
 
+        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, ApplicationDbContext context, IEmailSettings emailSettings)
+        {
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _context = context;
+            _emailsettings = emailSettings;
+        }
 
-		[HttpGet("IsAuthenticated")]
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register(RegisterDTO registerUser)
+        {
+            if (ModelState.IsValid)
+            {
+
+                var existingUser = await _userManager.FindByEmailAsync(registerUser.Email);
+                if (existingUser is not null)
+                {
+                    return BadRequest("This email is already registered.");
+                }
+
+                if (string.IsNullOrWhiteSpace(registerUser.Password))
+                {
+                    return BadRequest("You have to enter a password.");
+                }
+                var order = new Order()
+                {
+                    method = PaymentMethod.CreditCard,
+                    OrderDate = DateTime.Now,
+
+                };
+                _context.Orders.Add(order);
+                _context.SaveChanges();
+                AppUser u = new AppUser
+                {
+                    FirstName = registerUser.FirstName,
+                    LastName = registerUser.LastName,
+                    DateOfBirth = registerUser.DateOfBirth,
+                    UserName = registerUser.UserName,
+                    PhoneNumber = registerUser.PhoneNumber,
+                    Email = registerUser.Email,
+                    CartId = order.Id,
+
+                };
+                IdentityResult result = await _userManager.CreateAsync(u, registerUser.Password);
+                if (!result.Succeeded)
+                {
+                    return BadRequest(result.Errors.FirstOrDefault());
+
+                }
+
+                // Generate email confirmation token
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(u);
+                var confirmationLink = Url.Action("ConfirmEmail", "Account", new { userId = u.Id, token = token }, Request.Scheme);
+
+            }
+            return Ok(new { message = "Account Created Successfully. Please check your email to confirm your account." });
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginDTO LoginUser)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Invalid login request.");
+            }
+
+            var user = await _userManager.FindByEmailAsync(LoginUser.UsernameOrEmail) ??
+                       await _userManager.FindByNameAsync(LoginUser.UsernameOrEmail);
+
+            if (user == null || !await _userManager.CheckPasswordAsync(user, LoginUser.Password))
+            {
+                return Unauthorized("Invalid email or password.");
+            }
+
+            await _signInManager.SignInAsync(user, isPersistent: LoginUser.RememberMe);
+
+            return Ok(new { message = "Login successful." });
+        }
+
+        [HttpGet("IsAuthenticated")]
 		public IActionResult IsAuthenticated()
 		{
 			return Ok(new { User.Identity.IsAuthenticated, UserName=User.FindFirstValue(ClaimTypes.Name) });
 		}
-		public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager,ApplicationDbContext context,IEmailSettings emailSettings )
-        {
-            _userManager = userManager;  
-            _signInManager = signInManager;
-            _context = context;
-            _emailsettings = emailSettings;
-		}
-		[HttpGet("all-users")]
+
         [Authorize]
+        [HttpGet("all-users")]
         public async Task<ActionResult<List<RegisterDTO2>>> GetAllUsers()
 		{
 			var users = _userManager.Users.ToList();
@@ -54,132 +127,8 @@ namespace ClothingAPIs.Controllers
 
 			return userDtos;
 		}
-		[HttpPost("FakeLogin")]
-        
-		public async Task<IActionResult> FakeLogin()
-		{
-            var user = await _userManager.FindByIdAsync("7ba1220f-700a-49c3-9636-a693bb511559");
-			await _signInManager.SignInAsync(user, isPersistent: true);
-            return Ok(new {message= $"Logged in successfully." });
-		}
-        [HttpPost("register")]
-
-        public async Task<IActionResult> Register(RegisterDTO registerUser)
-        {
-            if (ModelState.IsValid)
-            {
-                
-                var existingUser = await _userManager.FindByEmailAsync(registerUser.Email);
-                if (existingUser is not null)
-                {
-                    if (await _userManager.IsEmailConfirmedAsync(existingUser))
-                    {
-                        return BadRequest("This email is already registered.");
-                    }
-                    else
-                    {
-                        return BadRequest("This email is already registered but pending confirmation. Please check your inbox.");
-                    }
-                }
-
-                if (string.IsNullOrWhiteSpace(registerUser.Password))
-                {
-                    return BadRequest("You have to enter a password.");
-                }
-                var order = new Order()
-                {
-					method = PaymentMethod.CreditCard,
-					OrderDate = DateTime.Now,
-                    
-				};
-                _context.Orders.Add(order);
-				_context.SaveChanges();
-				AppUser u = new AppUser
-                {
-                    FirstName = registerUser.FirstName,
-                    LastName = registerUser.LastName,
-                    DateOfBirth = registerUser.DateOfBirth,
-                    UserName = registerUser.UserName,
-                    PhoneNumber = registerUser.PhoneNumber,
-                    Email = registerUser.Email,
-                    CartId = order.Id,
-
-				};
-                IdentityResult result = await _userManager.CreateAsync(u, registerUser.Password);
-                if (!result.Succeeded)
-                {
-                    return BadRequest(result.Errors.FirstOrDefault());
-             
-                }
-               
-                // Generate email confirmation token
-                var token = await _userManager.GenerateEmailConfirmationTokenAsync(u);
-                var confirmationLink = Url.Action("ConfirmEmail", "Account", new { userId = u.Id, token = token }, Request.Scheme);
-
-				// Send confirmation email
-				var email = new Email2
-                {
-                    To = u.Email,
-                    Subject = "Confirm Email",
-                    Body = $"Please confirm your email by clicking on this link: {confirmationLink}"
-                };
-				_emailsettings.SendEmail(email);
 
 
-            }
-            return Ok(new {message= "Account Created Successfully. Please check your email to confirm your account." });
-        }
-		[HttpGet("ConfirmEmail")]
-		public async Task<IActionResult> ConfirmEmail(string userId, string token)
-		{
-			if (userId == null || token == null)
-			{
-				return BadRequest("Invalid email confirmation request.");
-			}
-
-			var user = await _userManager.FindByIdAsync(userId);
-			if (user == null)
-			{
-				return NotFound("User not found.");
-			}
-
-			var result = await _userManager.ConfirmEmailAsync(user, token);
-			if (result.Succeeded)
-			{
-				return Ok(new { message = "EmailConfirmed" });
-
-
-			}
-			else
-			{
-				return BadRequest(new { message = "Email confirmation failed." });
-			}
-		}
-
-		[HttpPost("login")]
-        public async Task<IActionResult> Login(LoginDTO LoginUser)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid login request.");
-            }
-
-            var user = await _userManager.FindByEmailAsync(LoginUser.UsernameOrEmail) ??
-                       await _userManager.FindByNameAsync(LoginUser.UsernameOrEmail);
-
-            if (user == null || !await _userManager.CheckPasswordAsync(user, LoginUser.Password))
-            {
-                return Unauthorized("Invalid email or password.");
-            }
-			if (!await _userManager.IsEmailConfirmedAsync(user))
-			{
-				return BadRequest("You must confirm your email before logging in");
-			}
-
-			await _signInManager.SignInAsync(user, isPersistent: LoginUser.RememberMe);
-
-			return Ok(new { message = "Login successful." });
-        }
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {

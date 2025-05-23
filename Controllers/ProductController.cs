@@ -45,7 +45,6 @@ namespace ClothingAPIs.Controllers
         }
 
 
-        //price, colour, rating, category, size
         [HttpGet("GetFiltered")]
         public IActionResult GetFiltered(double MinPrice=0, double MaxPrice=0, Color color= (Color)16, double rating=0, int CatId=0, Size size=(Size) 7 )
         {
@@ -69,7 +68,7 @@ namespace ClothingAPIs.Controllers
 		public IActionResult GetCategories()
 		{
 			var categories = context.Categories.Include(c => c.SubCategories)
-												.Select(c => new { c.id, c.Name /*, SubCategories = c.SubCategories.Select(s => new { s.Id, s.Name }) */ })
+												.Select(c => new { c.id, c.Name })
 												.ToList();
 			return Ok(categories);
 		}
@@ -88,6 +87,5 @@ namespace ClothingAPIs.Controllers
 			var result = context.SubCategories.Where(c => c.CategoryId == id).Select(s => new { s.Id, s.Name }).ToList();
 			return Ok(result);
 		}
-
 	}
 }
